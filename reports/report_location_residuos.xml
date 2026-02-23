@@ -98,7 +98,7 @@
                     <div class="page-title">Reporte de Ubicaciones — Residuos Peligrosos SAI</div>
                     <div class="subtitle">
                         Generado: <t t-esc="context_timestamp(datetime.datetime.now()).strftime('%d/%m/%Y %H:%M')"/>
-                        &nbsp;|&nbsp; Registros: <t t-esc="len(docs)"/>
+                        &#160;|&#160; Registros: <t t-esc="len(docs)"/>
                     </div>
 
                     <table>
@@ -205,8 +205,8 @@
                     </table>
 
                     <div class="footer-note">
-                        Filas rojas = caducidad vencida &nbsp;|&nbsp; Filas amarillas = próximos a vencer (≤ 30 días)
-                        &nbsp;|&nbsp; Peso RP = stock disponible en esta ubicación
+                        Filas rojas = caducidad vencida &#160;|&#160; Filas amarillas = próximos a vencer (≤ 30 días)
+                        &#160;|&#160; Peso RP = stock disponible en esta ubicación
                     </div>
                 </div>
             </t>

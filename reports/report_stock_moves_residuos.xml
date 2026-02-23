@@ -109,7 +109,7 @@
                     <div class="page-title">Historial de Movimientos — Residuos Peligrosos SAI</div>
                     <div class="subtitle">
                         Generado: <t t-esc="context_timestamp(datetime.datetime.now()).strftime('%d/%m/%Y %H:%M')"/>
-                        &nbsp;|&nbsp; Movimientos: <t t-esc="len(docs)"/>
+                        &#160;|&#160; Movimientos: <t t-esc="len(docs)"/>
                     </div>
 
                     <table>
@@ -250,8 +250,8 @@
                     </t>
 
                     <div class="footer-note">
-                        Filas rojas = caducidad vencida &nbsp;|&nbsp; Filas amarillas = próximos a vencer (≤ 30 días)
-                        &nbsp;|&nbsp; Peso RP = cantidad del movimiento en kg
+                        Filas rojas = caducidad vencida &#160;|&#160; Filas amarillas = próximos a vencer (≤ 30 días)
+                        &#160;|&#160; Peso RP = cantidad del movimiento en kg
                     </div>
                 </div>
             </t>
