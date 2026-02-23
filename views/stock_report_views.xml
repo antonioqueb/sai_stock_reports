@@ -275,7 +275,7 @@
     </record>
 
     <!-- Búsqueda extendida para stock.move.line -->
-    <record id="view_move_line_search_sai" model="ir.ui.view">
+    <!-- <record id="view_move_line_search_sai" model="ir.ui.view">
         <field name="name">stock.move.line.search.sai.residuos</field>
         <field name="model">stock.move.line</field>
         <field name="inherit_id" ref="stock.view_move_line_filter"/>
@@ -309,6 +309,6 @@
                         context="{'group_by': 'location_dest_id'}"/>
             </xpath>
         </field>
-    </record>
+    </record> -->
 
 </odoo>
