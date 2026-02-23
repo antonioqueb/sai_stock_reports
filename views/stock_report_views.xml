@@ -1,0 +1,325 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+
+    <!-- ===================================================================
+         REPORTE DE UBICACIONES (stock.quant)
+         =================================================================== -->
+    <record id="view_stock_quant_list_sai" model="ir.ui.view">
+        <field name="name">stock.quant.list.sai.residuos</field>
+        <field name="model">stock.quant</field>
+        <field name="inherit_id" ref="stock.view_stock_quant_tree"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='lot_id']" position="after">
+
+                <!-- Columna: Folio -->
+                <field name="folio"
+                       string="Folio"
+                       optional="show"/>
+
+                <!-- Columna: No. Manifiesto -->
+                <field name="numero_manifiesto"
+                       string="No. Manifiesto"
+                       optional="show"
+                       decoration-bf="numero_manifiesto != False"/>
+
+                <!-- Columna: Fecha del manifiesto -->
+                <field name="fecha_manifiesto"
+                       string="Fecha"
+                       optional="hide"/>
+
+                <!-- Columna: Generador -->
+                <field name="generador_nombre"
+                       string="Generador"
+                       optional="show"/>
+
+                <!-- Columna: Número de Registro Ambiental -->
+                <field name="numero_registro_ambiental"
+                       string="Núm. Reg. Ambiental"
+                       optional="hide"/>
+
+                <!-- Columna: Nombre del Operador -->
+                <field name="nombre_operador"
+                       string="Nombre del Operador"
+                       optional="hide"/>
+
+                <!-- Columna: Camión -->
+                <field name="camion"
+                       string="Camión"
+                       optional="hide"/>
+
+                <!-- Columna: Camión-#Contenedor-Placa -->
+                <field name="camion_contenedor_placa"
+                       string="Placa"
+                       optional="hide"/>
+
+                <!-- Columna: Transportista -->
+                <field name="transportista_nombre"
+                       string="Transportista"
+                       optional="show"/>
+
+                <!-- Columna: Autorización Transportista -->
+                <field name="autorizacion_transportista"
+                       string="Aut. Transportista"
+                       optional="hide"/>
+
+                <!-- Columna: Nombre del residuo -->
+                <field name="nombre_residuo"
+                       string="Residuos Peligrosos"
+                       optional="show"/>
+
+                <!-- Columna: Tipo de Contenedor -->
+                <field name="tipo_contenedor"
+                       string="Tipo Contenedor"
+                       optional="show"/>
+
+                <!-- Columna: Capacidad del Contenedor -->
+                <field name="capacidad_contenedor"
+                       string="Capacidad"
+                       optional="show"/>
+
+                <!-- Columna: CRETIB (resumen) -->
+                <field name="clasificaciones_cretib"
+                       string="CRETIB"
+                       optional="show"/>
+
+                <!-- Columnas CRETIB individuales (ocultas por defecto, útiles para filtrar) -->
+                <field name="clasificacion_c" string="C" optional="hide"/>
+                <field name="clasificacion_r" string="R" optional="hide"/>
+                <field name="clasificacion_e" string="E" optional="hide"/>
+                <field name="clasificacion_t" string="T" optional="hide"/>
+                <field name="clasificacion_i" string="I" optional="hide"/>
+                <field name="clasificacion_b" string="B" optional="hide"/>
+
+                <!-- Columna: Plan de Manejo -->
+                <field name="plan_manejo"
+                       string="Plan de Manejo"
+                       optional="show"/>
+
+                <!-- Columna: Tipo de Manejo (Many2one) -->
+                <field name="tipo_manejo_id_rel"
+                       string="Tipo de Manejo"
+                       optional="hide"/>
+
+                <!-- Columna: Fecha de Recepción del residuo -->
+                <field name="fecha_recepcion_residuo"
+                       string="Fecha Recepción RP"
+                       optional="show"/>
+
+                <!-- Columna: Fecha de Caducidad -->
+                <field name="fecha_caducidad_residuo"
+                       string="Fecha Caducidad"
+                       optional="show"
+                       decoration-danger="caducidad_estado == 'expired'"
+                       decoration-warning="caducidad_estado == 'warning'"/>
+
+                <!-- Columna: Días Restantes -->
+                <field name="dias_restantes_caducidad"
+                       string="Días Rest."
+                       optional="hide"/>
+
+                <!-- Columna: Estado de Caducidad -->
+                <field name="caducidad_estado"
+                       string="Estado"
+                       optional="show"
+                       widget="badge"
+                       decoration-success="caducidad_estado == 'ok'"
+                       decoration-warning="caducidad_estado == 'warning'"
+                       decoration-danger="caducidad_estado == 'expired'"
+                       invisible="caducidad_estado == False"/>
+
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Búsqueda extendida para stock.quant -->
+    <record id="view_stock_quant_search_sai" model="ir.ui.view">
+        <field name="name">stock.quant.search.sai.residuos</field>
+        <field name="model">stock.quant</field>
+        <field name="inherit_id" ref="stock.quant_search_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//search" position="inside">
+                <separator/>
+                <field name="numero_manifiesto"  string="No. Manifiesto"/>
+                <field name="generador_nombre"   string="Generador"/>
+                <field name="transportista_nombre" string="Transportista"/>
+                <field name="nombre_residuo"     string="Residuos Peligrosos"/>
+                <field name="tipo_manejo_id_rel" string="Tipo de Manejo"/>
+                <field name="plan_manejo"        string="Plan de Manejo"/>
+                <field name="nombre_operador"    string="Operador"/>
+                <separator/>
+                <filter string="Vencidos"
+                        name="caducados"
+                        domain="[('lot_id.caducidad_estado', '=', 'expired')]"/>
+                <filter string="Próximos a vencer (30 días)"
+                        name="proximos_vencer"
+                        domain="[('lot_id.caducidad_estado', '=', 'warning')]"/>
+                <filter string="Con Manifiesto"
+                        name="con_manifiesto"
+                        domain="[('lot_id', '!=', False)]"/>
+                <separator/>
+                <filter string="Plan de Manejo"
+                        name="group_plan_manejo"
+                        context="{'group_by': 'plan_manejo'}"/>
+                <filter string="Generador"
+                        name="group_generador"
+                        context="{'group_by': 'generador_nombre'}"/>
+                <filter string="Transportista"
+                        name="group_transportista"
+                        context="{'group_by': 'transportista_nombre'}"/>
+            </xpath>
+        </field>
+    </record>
+
+
+    <!-- ===================================================================
+         HISTORIAL DE MOVIMIENTOS (stock.move.line)
+         =================================================================== -->
+    <record id="view_move_line_list_sai" model="ir.ui.view">
+        <field name="name">stock.move.line.list.sai.residuos</field>
+        <field name="model">stock.move.line</field>
+        <field name="inherit_id" ref="stock.view_move_line_tree"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='lot_id']" position="after">
+
+                <field name="folio"
+                       string="Folio"
+                       optional="show"/>
+
+                <field name="numero_manifiesto"
+                       string="No. Manifiesto"
+                       optional="show"
+                       decoration-bf="numero_manifiesto != False"/>
+
+                <field name="fecha_manifiesto"
+                       string="Fecha Manifiesto"
+                       optional="hide"/>
+
+                <field name="generador_nombre"
+                       string="Generador"
+                       optional="show"/>
+
+                <field name="numero_registro_ambiental"
+                       string="Núm. Reg. Ambiental"
+                       optional="hide"/>
+
+                <field name="nombre_operador"
+                       string="Nombre del Operador"
+                       optional="show"/>
+
+                <field name="camion"
+                       string="Camión"
+                       optional="hide"/>
+
+                <field name="camion_contenedor_placa"
+                       string="Placa"
+                       optional="show"/>
+
+                <field name="transportista_nombre"
+                       string="Transportista"
+                       optional="show"/>
+
+                <field name="autorizacion_transportista"
+                       string="Aut. Transportista"
+                       optional="hide"/>
+
+                <field name="nombre_residuo"
+                       string="Residuos Peligrosos"
+                       optional="show"/>
+
+                <field name="tipo_contenedor"
+                       string="Tipo Contenedor"
+                       optional="show"/>
+
+                <field name="capacidad_contenedor"
+                       string="Capacidad"
+                       optional="show"/>
+
+                <field name="clasificaciones_cretib"
+                       string="CRETIB"
+                       optional="show"/>
+
+                <field name="clasificacion_c" string="C" optional="hide"/>
+                <field name="clasificacion_r" string="R" optional="hide"/>
+                <field name="clasificacion_e" string="E" optional="hide"/>
+                <field name="clasificacion_t" string="T" optional="hide"/>
+                <field name="clasificacion_i" string="I" optional="hide"/>
+                <field name="clasificacion_b" string="B" optional="hide"/>
+
+                <field name="plan_manejo"
+                       string="Plan de Manejo"
+                       optional="show"/>
+
+                <field name="tipo_manejo_id_rel"
+                       string="Tipo de Manejo"
+                       optional="hide"/>
+
+                <field name="fecha_recepcion_residuo"
+                       string="Fecha Recepción RP"
+                       optional="show"/>
+
+                <field name="fecha_caducidad_residuo"
+                       string="Fecha Caducidad"
+                       optional="hide"
+                       decoration-danger="caducidad_estado == 'expired'"
+                       decoration-warning="caducidad_estado == 'warning'"/>
+
+                <field name="dias_restantes_caducidad"
+                       string="Días Rest."
+                       optional="hide"/>
+
+                <field name="caducidad_estado"
+                       string="Estado Caducidad"
+                       optional="hide"
+                       widget="badge"
+                       decoration-success="caducidad_estado == 'ok'"
+                       decoration-warning="caducidad_estado == 'warning'"
+                       decoration-danger="caducidad_estado == 'expired'"
+                       invisible="caducidad_estado == False"/>
+
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Búsqueda extendida para stock.move.line -->
+    <record id="view_move_line_search_sai" model="ir.ui.view">
+        <field name="name">stock.move.line.search.sai.residuos</field>
+        <field name="model">stock.move.line</field>
+        <field name="inherit_id" ref="stock.view_move_line_filter"/>
+        <field name="arch" type="xml">
+            <xpath expr="//search" position="inside">
+                <separator/>
+                <field name="numero_manifiesto"   string="No. Manifiesto"/>
+                <field name="generador_nombre"    string="Generador"/>
+                <field name="transportista_nombre" string="Transportista"/>
+                <field name="nombre_residuo"      string="Residuos Peligrosos"/>
+                <field name="nombre_operador"     string="Operador"/>
+                <field name="plan_manejo"         string="Plan de Manejo"/>
+                <field name="camion_contenedor_placa" string="Placa"/>
+                <separator/>
+                <filter string="Con Manifiesto"
+                        name="con_manifiesto"
+                        domain="[('lot_id', '!=', False)]"/>
+                <filter string="Residuos Vencidos"
+                        name="caducados"
+                        domain="[('lot_id.caducidad_estado', '=', 'expired')]"/>
+                <filter string="Próximos a Vencer"
+                        name="proximos_vencer"
+                        domain="[('lot_id.caducidad_estado', '=', 'warning')]"/>
+                <separator/>
+                <filter string="Plan de Manejo"
+                        name="group_plan_manejo"
+                        context="{'group_by': 'plan_manejo'}"/>
+                <filter string="No. Manifiesto"
+                        name="group_manifiesto"
+                        context="{'group_by': 'numero_manifiesto'}"/>
+                <filter string="Generador"
+                        name="group_generador"
+                        context="{'group_by': 'generador_nombre'}"/>
+                <filter string="Transportista"
+                        name="group_transportista"
+                        context="{'group_by': 'transportista_nombre'}"/>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

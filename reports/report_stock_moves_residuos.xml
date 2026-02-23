@@ -1,0 +1,261 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="paperformat_movimientos_residuos" model="report.paperformat">
+        <field name="name">Historial Movimientos Residuos SAI</field>
+        <field name="default" eval="False"/>
+        <field name="format">A4</field>
+        <field name="orientation">Landscape</field>
+        <field name="margin_top">12</field>
+        <field name="margin_bottom">8</field>
+        <field name="margin_left">5</field>
+        <field name="margin_right">5</field>
+        <field name="header_line" eval="False"/>
+        <field name="header_spacing">30</field>
+        <field name="dpi">90</field>
+    </record>
+
+    <record id="action_report_movimientos_residuos" model="ir.actions.report">
+        <field name="name">Historial de Movimientos — Residuos Peligrosos</field>
+        <field name="model">stock.move.line</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">sai_stock_reports.report_movimientos_residuos_document</field>
+        <field name="report_file">sai_stock_reports.report_movimientos_residuos_document</field>
+        <field name="binding_model_id" ref="stock.model_stock_move_line"/>
+        <field name="binding_type">report</field>
+        <field name="paperformat_id" ref="sai_stock_reports.paperformat_movimientos_residuos"/>
+    </record>
+
+    <template id="report_movimientos_residuos_document">
+        <t t-call="web.html_container">
+            <t t-call="web.external_layout">
+                <div class="page">
+                    <style>
+                        body, td, th {
+                            font-family: "DejaVu Sans", Arial, sans-serif !important;
+                            font-size: 7.5px;
+                            line-height: 1.2;
+                        }
+                        .page-title {
+                            text-align: center;
+                            font-size: 12px;
+                            font-weight: 700;
+                            margin: 0 0 2px 0;
+                            text-transform: uppercase;
+                        }
+                        .subtitle {
+                            text-align: center;
+                            font-size: 8px;
+                            color: #555;
+                            margin: 0 0 6px 0;
+                        }
+                        table {
+                            width: 100%;
+                            border-collapse: collapse;
+                            margin-bottom: 4px;
+                        }
+                        th, td {
+                            border: 1px solid #999;
+                            padding: 2px 3px;
+                            vertical-align: middle;
+                        }
+                        th {
+                            background-color: #1a3e6e !important;
+                            color: #fff !important;
+                            font-weight: bold;
+                            text-align: center;
+                            font-size: 7px;
+                            -webkit-print-color-adjust: exact;
+                            print-color-adjust: exact;
+                        }
+                        th.th-cretib {
+                            background-color: #0d1e3e !important;
+                        }
+                        .center  { text-align: center; }
+                        .right   { text-align: right; }
+                        .bold    { font-weight: bold; }
+                        tr.vencido td {
+                            background-color: #f8d7da !important;
+                            -webkit-print-color-adjust: exact;
+                            print-color-adjust: exact;
+                        }
+                        tr.proximo td {
+                            background-color: #fff3cd !important;
+                            -webkit-print-color-adjust: exact;
+                            print-color-adjust: exact;
+                        }
+                        .badge-ok   { color: #155724; font-weight: bold; }
+                        .badge-warn { color: #856404; font-weight: bold; }
+                        .badge-exp  { color: #721c24; font-weight: bold; }
+                        .footer-note {
+                            font-size: 7px;
+                            color: #888;
+                            text-align: right;
+                            margin-top: 4px;
+                        }
+                        .summary-title {
+                            font-size: 9px;
+                            font-weight: bold;
+                            margin: 8px 0 3px 0;
+                            border-bottom: 1px solid #333;
+                            padding-bottom: 2px;
+                        }
+                        table.summary th {
+                            background-color: #555 !important;
+                        }
+                        table.summary { width: 45%; }
+                    </style>
+
+                    <div class="page-title">Historial de Movimientos — Residuos Peligrosos SAI</div>
+                    <div class="subtitle">
+                        Generado: <t t-esc="context_timestamp(datetime.datetime.now()).strftime('%d/%m/%Y %H:%M')"/>
+                        &nbsp;|&nbsp; Movimientos: <t t-esc="len(docs)"/>
+                    </div>
+
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width:3%">Folio</th>
+                                <th style="width:4%">Fecha</th>
+                                <th style="width:5%">Referencia</th>
+                                <th style="width:8%">Generador</th>
+                                <th style="width:5%">Reg. Ambiental</th>
+                                <th style="width:5%">No. Manif.</th>
+                                <th style="width:8%">Residuos Peligrosos</th>
+                                <th class="th-cretib" style="width:2%">C</th>
+                                <th class="th-cretib" style="width:2%">R</th>
+                                <th class="th-cretib" style="width:2%">E</th>
+                                <th class="th-cretib" style="width:2%">T</th>
+                                <th class="th-cretib" style="width:2%">I</th>
+                                <th style="width:4%">Tipo Cont.</th>
+                                <th style="width:4%">Cap. Cont.</th>
+                                <th style="width:4%">Peso RP</th>
+                                <th style="width:6%">Operador</th>
+                                <th style="width:4%">Camión</th>
+                                <th style="width:4%">Placa</th>
+                                <th style="width:7%">Transportista</th>
+                                <th style="width:5%">Aut. Trans.</th>
+                                <th style="width:5%">Plan Manejo</th>
+                                <th style="width:4%">Origen</th>
+                                <th style="width:4%">Destino</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <t t-foreach="docs" t-as="line">
+                                <tr t-attf-class="{{ 'vencido' if line.caducidad_estado == 'expired' else ('proximo' if line.caducidad_estado == 'warning' else '') }}">
+                                    <!-- Folio -->
+                                    <td class="center">
+                                        <t t-if="line.folio"><t t-esc="line.folio"/></t>
+                                        <t t-else="">—</t>
+                                    </td>
+                                    <!-- Fecha del movimiento -->
+                                    <td class="center">
+                                        <t t-if="line.date">
+                                            <t t-esc="line.date.strftime('%d/%m/%Y')"/>
+                                        </t>
+                                        <t t-else="">—</t>
+                                    </td>
+                                    <!-- Referencia (picking) -->
+                                    <td class="center">
+                                        <t t-esc="line.picking_id.name if line.picking_id else (line.reference or '—')"/>
+                                    </td>
+                                    <!-- Generador -->
+                                    <td><t t-esc="line.generador_nombre or '—'"/></td>
+                                    <!-- Registro Ambiental -->
+                                    <td class="center"><t t-esc="line.numero_registro_ambiental or '—'"/></td>
+                                    <!-- No. Manifiesto -->
+                                    <td class="center bold">
+                                        <t t-if="line.numero_manifiesto">
+                                            <t t-esc="line.numero_manifiesto"/>
+                                        </t>
+                                        <t t-else="">
+                                            <t t-esc="line.lot_id.name if line.lot_id else '—'"/>
+                                        </t>
+                                    </td>
+                                    <!-- Residuos Peligrosos -->
+                                    <td><t t-esc="line.nombre_residuo or line.product_id.display_name"/></td>
+                                    <!-- CRETIB individual -->
+                                    <td class="center"><t t-if="line.clasificacion_c">X</t></td>
+                                    <td class="center"><t t-if="line.clasificacion_r">X</t></td>
+                                    <td class="center"><t t-if="line.clasificacion_e">X</t></td>
+                                    <td class="center"><t t-if="line.clasificacion_t">X</t></td>
+                                    <td class="center"><t t-if="line.clasificacion_i">X</t></td>
+                                    <!-- Tipo Contenedor -->
+                                    <td class="center"><t t-esc="line.tipo_contenedor or '—'"/></td>
+                                    <!-- Capacidad Contenedor -->
+                                    <td class="center"><t t-esc="line.capacidad_contenedor or '—'"/></td>
+                                    <!-- Peso RP = cantidad del movimiento -->
+                                    <td class="right">
+                                        <t t-esc="line.quantity"/> <t t-esc="line.product_uom_id.name"/>
+                                    </td>
+                                    <!-- Operador -->
+                                    <td><t t-esc="line.nombre_operador or '—'"/></td>
+                                    <!-- Camión -->
+                                    <td class="center"><t t-esc="line.camion or '—'"/></td>
+                                    <!-- Placa -->
+                                    <td class="center"><t t-esc="line.camion_contenedor_placa or '—'"/></td>
+                                    <!-- Transportista -->
+                                    <td><t t-esc="line.transportista_nombre or '—'"/></td>
+                                    <!-- Autorización Transportista -->
+                                    <td class="center"><t t-esc="line.autorizacion_transportista or '—'"/></td>
+                                    <!-- Plan de Manejo -->
+                                    <td class="center bold"><t t-esc="line.plan_manejo or '—'"/></td>
+                                    <!-- Ubicación Origen -->
+                                    <td class="center"><t t-esc="line.location_id.name"/></td>
+                                    <!-- Ubicación Destino -->
+                                    <td class="center"><t t-esc="line.location_dest_id.name"/></td>
+                                </tr>
+                            </t>
+                            <t t-if="not docs">
+                                <tr>
+                                    <td colspan="23" class="center" style="padding:10px; font-style:italic; color:#666;">
+                                        Sin movimientos registrados.
+                                    </td>
+                                </tr>
+                            </t>
+                        </tbody>
+                    </table>
+
+                    <!-- Resumen por Plan de Manejo -->
+                    <t t-set="planes" t-value="list(set(l.plan_manejo for l in docs if l.plan_manejo))"/>
+                    <t t-if="planes">
+                        <div class="summary-title">Resumen por Plan de Manejo</div>
+                        <table class="summary">
+                            <thead>
+                                <tr>
+                                    <th style="width:60%">Plan de Manejo</th>
+                                    <th style="width:20%">Movimientos</th>
+                                    <th style="width:20%">Peso Total (kg)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <t t-foreach="planes" t-as="plan">
+                                    <t t-set="lineas_plan" t-value="docs.filtered(lambda l: l.plan_manejo == plan)"/>
+                                    <tr>
+                                        <td><t t-esc="plan"/></td>
+                                        <td class="center"><t t-esc="len(lineas_plan)"/></td>
+                                        <td class="right"><t t-esc="sum(lineas_plan.mapped('quantity'))"/> kg</td>
+                                    </tr>
+                                </t>
+                                <t t-set="sin_plan" t-value="docs.filtered(lambda l: not l.plan_manejo)"/>
+                                <t t-if="sin_plan">
+                                    <tr>
+                                        <td><em>Sin plan de manejo</em></td>
+                                        <td class="center"><t t-esc="len(sin_plan)"/></td>
+                                        <td class="right"><t t-esc="sum(sin_plan.mapped('quantity'))"/> kg</td>
+                                    </tr>
+                                </t>
+                            </tbody>
+                        </table>
+                    </t>
+
+                    <div class="footer-note">
+                        Filas rojas = caducidad vencida &nbsp;|&nbsp; Filas amarillas = próximos a vencer (≤ 30 días)
+                        &nbsp;|&nbsp; Peso RP = cantidad del movimiento en kg
+                    </div>
+                </div>
+            </t>
+        </t>
+    </template>
+
+</odoo>

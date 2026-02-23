@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="paperformat_ubicaciones_residuos" model="report.paperformat">
+        <field name="name">Ubicaciones Residuos SAI</field>
+        <field name="default" eval="False"/>
+        <field name="format">A4</field>
+        <field name="orientation">Landscape</field>
+        <field name="margin_top">12</field>
+        <field name="margin_bottom">8</field>
+        <field name="margin_left">5</field>
+        <field name="margin_right">5</field>
+        <field name="header_line" eval="False"/>
+        <field name="header_spacing">30</field>
+        <field name="dpi">90</field>
+    </record>
+
+    <record id="action_report_ubicaciones_residuos" model="ir.actions.report">
+        <field name="name">Reporte de Ubicaciones — Residuos Peligrosos</field>
+        <field name="model">stock.quant</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">sai_stock_reports.report_ubicaciones_residuos_document</field>
+        <field name="report_file">sai_stock_reports.report_ubicaciones_residuos_document</field>
+        <field name="binding_model_id" ref="stock.model_stock_quant"/>
+        <field name="binding_type">report</field>
+        <field name="paperformat_id" ref="sai_stock_reports.paperformat_ubicaciones_residuos"/>
+    </record>
+
+    <template id="report_ubicaciones_residuos_document">
+        <t t-call="web.html_container">
+            <t t-call="web.external_layout">
+                <div class="page">
+                    <style>
+                        body, td, th {
+                            font-family: "DejaVu Sans", Arial, sans-serif !important;
+                            font-size: 7.5px;
+                            line-height: 1.2;
+                        }
+                        .page-title {
+                            text-align: center;
+                            font-size: 12px;
+                            font-weight: 700;
+                            margin: 0 0 2px 0;
+                            text-transform: uppercase;
+                        }
+                        .subtitle {
+                            text-align: center;
+                            font-size: 8px;
+                            color: #555;
+                            margin: 0 0 6px 0;
+                        }
+                        table {
+                            width: 100%;
+                            border-collapse: collapse;
+                            margin-bottom: 4px;
+                        }
+                        th, td {
+                            border: 1px solid #999;
+                            padding: 2px 3px;
+                            vertical-align: middle;
+                        }
+                        th {
+                            background-color: #1a4e2e !important;
+                            color: #fff !important;
+                            font-weight: bold;
+                            text-align: center;
+                            font-size: 7px;
+                            -webkit-print-color-adjust: exact;
+                            print-color-adjust: exact;
+                        }
+                        th.th-cretib {
+                            background-color: #0d2e1a !important;
+                        }
+                        .center  { text-align: center; }
+                        .right   { text-align: right; }
+                        .bold    { font-weight: bold; }
+                        tr.vencido td {
+                            background-color: #f8d7da !important;
+                            -webkit-print-color-adjust: exact;
+                            print-color-adjust: exact;
+                        }
+                        tr.proximo td {
+                            background-color: #fff3cd !important;
+                            -webkit-print-color-adjust: exact;
+                            print-color-adjust: exact;
+                        }
+                        .badge-ok   { color: #155724; font-weight: bold; }
+                        .badge-warn { color: #856404; font-weight: bold; }
+                        .badge-exp  { color: #721c24; font-weight: bold; }
+                        .footer-note {
+                            font-size: 7px;
+                            color: #888;
+                            text-align: right;
+                            margin-top: 4px;
+                        }
+                    </style>
+
+                    <div class="page-title">Reporte de Ubicaciones — Residuos Peligrosos SAI</div>
+                    <div class="subtitle">
+                        Generado: <t t-esc="context_timestamp(datetime.datetime.now()).strftime('%d/%m/%Y %H:%M')"/>
+                        &nbsp;|&nbsp; Registros: <t t-esc="len(docs)"/>
+                    </div>
+
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width:3%">Folio</th>
+                                <th style="width:5%">No. Manif.</th>
+                                <th style="width:5%">Fecha</th>
+                                <th style="width:8%">Generador</th>
+                                <th style="width:5%">Reg. Ambiental</th>
+                                <th style="width:9%">Residuos Peligrosos</th>
+                                <th class="th-cretib" style="width:2%">C</th>
+                                <th class="th-cretib" style="width:2%">R</th>
+                                <th class="th-cretib" style="width:2%">E</th>
+                                <th class="th-cretib" style="width:2%">T</th>
+                                <th class="th-cretib" style="width:2%">I</th>
+                                <th style="width:4%">Tipo Cont.</th>
+                                <th style="width:4%">Cap. Cont.</th>
+                                <th style="width:4%">Peso RP (kg)</th>
+                                <th style="width:4%">Peso Total (kg)</th>
+                                <th style="width:6%">Operador</th>
+                                <th style="width:4%">Camión</th>
+                                <th style="width:4%">Placa</th>
+                                <th style="width:7%">Transportista</th>
+                                <th style="width:5%">Aut. Trans.</th>
+                                <th style="width:5%">Plan de Manejo</th>
+                                <th style="width:5%">Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <t t-foreach="docs" t-as="quant">
+                                <tr t-attf-class="{{ 'vencido' if quant.caducidad_estado == 'expired' else ('proximo' if quant.caducidad_estado == 'warning' else '') }}">
+                                    <!-- Folio -->
+                                    <td class="center">
+                                        <t t-if="quant.folio"><t t-esc="quant.folio"/></t>
+                                        <t t-else="">—</t>
+                                    </td>
+                                    <!-- No. Manifiesto -->
+                                    <td class="center bold">
+                                        <t t-esc="quant.numero_manifiesto or '—'"/>
+                                    </td>
+                                    <!-- Fecha -->
+                                    <td class="center">
+                                        <t t-if="quant.fecha_manifiesto">
+                                            <t t-esc="quant.fecha_manifiesto.strftime('%d/%m/%Y')"/>
+                                        </t>
+                                        <t t-else="">—</t>
+                                    </td>
+                                    <!-- Generador -->
+                                    <td><t t-esc="quant.generador_nombre or '—'"/></td>
+                                    <!-- Registro Ambiental -->
+                                    <td class="center"><t t-esc="quant.numero_registro_ambiental or '—'"/></td>
+                                    <!-- Residuos Peligrosos -->
+                                    <td><t t-esc="quant.nombre_residuo or quant.product_id.display_name"/></td>
+                                    <!-- CRETIB individual -->
+                                    <td class="center"><t t-if="quant.clasificacion_c">X</t></td>
+                                    <td class="center"><t t-if="quant.clasificacion_r">X</t></td>
+                                    <td class="center"><t t-if="quant.clasificacion_e">X</t></td>
+                                    <td class="center"><t t-if="quant.clasificacion_t">X</t></td>
+                                    <td class="center"><t t-if="quant.clasificacion_i">X</t></td>
+                                    <!-- Tipo Contenedor -->
+                                    <td class="center"><t t-esc="quant.tipo_contenedor or '—'"/></td>
+                                    <!-- Capacidad Contenedor -->
+                                    <td class="center"><t t-esc="quant.capacidad_contenedor or '—'"/></td>
+                                    <!-- Peso RP (quantity del quant) -->
+                                    <td class="right"><t t-esc="quant.quantity"/> <t t-esc="quant.product_uom_id.name"/></td>
+                                    <!-- Peso Total (mismo que peso RP en ubicaciones, es el stock disponible) -->
+                                    <td class="right"><t t-esc="quant.quantity"/></td>
+                                    <!-- Operador -->
+                                    <td><t t-esc="quant.nombre_operador or '—'"/></td>
+                                    <!-- Camión -->
+                                    <td class="center"><t t-esc="quant.camion or '—'"/></td>
+                                    <!-- Placa -->
+                                    <td class="center"><t t-esc="quant.camion_contenedor_placa or '—'"/></td>
+                                    <!-- Transportista -->
+                                    <td><t t-esc="quant.transportista_nombre or '—'"/></td>
+                                    <!-- Autorización Transportista -->
+                                    <td class="center"><t t-esc="quant.autorizacion_transportista or '—'"/></td>
+                                    <!-- Plan de Manejo -->
+                                    <td class="center bold"><t t-esc="quant.plan_manejo or '—'"/></td>
+                                    <!-- Estado de Caducidad -->
+                                    <td class="center">
+                                        <t t-if="quant.caducidad_estado == 'expired'">
+                                            <span class="badge-exp">VENCIDO</span>
+                                        </t>
+                                        <t t-elif="quant.caducidad_estado == 'warning'">
+                                            <span class="badge-warn">⚠ <t t-esc="quant.dias_restantes_caducidad"/>d</span>
+                                        </t>
+                                        <t t-elif="quant.caducidad_estado == 'ok'">
+                                            <span class="badge-ok">Vigente</span>
+                                        </t>
+                                        <t t-else="">—</t>
+                                    </td>
+                                </tr>
+                            </t>
+                            <t t-if="not docs">
+                                <tr>
+                                    <td colspan="22" class="center" style="padding:10px; font-style:italic; color:#666;">
+                                        Sin registros de inventario.
+                                    </td>
+                                </tr>
+                            </t>
+                        </tbody>
+                    </table>
+
+                    <div class="footer-note">
+                        Filas rojas = caducidad vencida &nbsp;|&nbsp; Filas amarillas = próximos a vencer (≤ 30 días)
+                        &nbsp;|&nbsp; Peso RP = stock disponible en esta ubicación
+                    </div>
+                </div>
+            </t>
+        </t>
+    </template>
+
+</odoo>
