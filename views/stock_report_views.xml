@@ -139,33 +139,27 @@
         <field name="arch" type="xml">
             <xpath expr="//search" position="inside">
                 <separator/>
-                <field name="numero_manifiesto"  string="No. Manifiesto"/>
-                <field name="generador_nombre"   string="Generador"/>
-                <field name="transportista_nombre" string="Transportista"/>
-                <field name="nombre_residuo"     string="Residuos Peligrosos"/>
-                <field name="tipo_manejo_id_rel" string="Tipo de Manejo"/>
-                <field name="plan_manejo"        string="Plan de Manejo"/>
-                <field name="nombre_operador"    string="Operador"/>
+                <field name="lot_id" string="Lote / Manifiesto"/>
                 <separator/>
                 <filter string="Vencidos"
                         name="caducados"
-                        domain="[('lot_id.caducidad_estado', '=', 'expired')]"/>
+                        domain="[('lot_id.fecha_caducidad_residuo', '&lt;', context_today().strftime('%Y-%m-%d')), ('lot_id.fecha_caducidad_residuo', '!=', False)]"/>
                 <filter string="Próximos a vencer (30 días)"
                         name="proximos_vencer"
-                        domain="[('lot_id.caducidad_estado', '=', 'warning')]"/>
+                        domain="[('lot_id.fecha_caducidad_residuo', '&gt;=', context_today().strftime('%Y-%m-%d')), ('lot_id.fecha_caducidad_residuo', '&lt;=', (context_today() + datetime.timedelta(days=30)).strftime('%Y-%m-%d'))]"/>
                 <filter string="Con Manifiesto"
                         name="con_manifiesto"
                         domain="[('lot_id', '!=', False)]"/>
                 <separator/>
-                <filter string="Plan de Manejo"
-                        name="group_plan_manejo"
-                        context="{'group_by': 'plan_manejo'}"/>
-                <filter string="Generador"
-                        name="group_generador"
-                        context="{'group_by': 'generador_nombre'}"/>
-                <filter string="Transportista"
-                        name="group_transportista"
-                        context="{'group_by': 'transportista_nombre'}"/>
+                <filter string="Por Lote/Manifiesto"
+                        name="group_lot"
+                        context="{'group_by': 'lot_id'}"/>
+                <filter string="Por Producto"
+                        name="group_product"
+                        context="{'group_by': 'product_id'}"/>
+                <filter string="Por Ubicación"
+                        name="group_location"
+                        context="{'group_by': 'location_id'}"/>
             </xpath>
         </field>
     </record>
@@ -288,36 +282,31 @@
         <field name="arch" type="xml">
             <xpath expr="//search" position="inside">
                 <separator/>
-                <field name="numero_manifiesto"   string="No. Manifiesto"/>
-                <field name="generador_nombre"    string="Generador"/>
-                <field name="transportista_nombre" string="Transportista"/>
-                <field name="nombre_residuo"      string="Residuos Peligrosos"/>
-                <field name="nombre_operador"     string="Operador"/>
-                <field name="plan_manejo"         string="Plan de Manejo"/>
-                <field name="camion_contenedor_placa" string="Placa"/>
+                <field name="lot_id" string="Lote / Manifiesto"/>
+                <field name="picking_id" string="Referencia"/>
                 <separator/>
                 <filter string="Con Manifiesto"
                         name="con_manifiesto"
                         domain="[('lot_id', '!=', False)]"/>
                 <filter string="Residuos Vencidos"
                         name="caducados"
-                        domain="[('lot_id.caducidad_estado', '=', 'expired')]"/>
+                        domain="[('lot_id.fecha_caducidad_residuo', '&lt;', context_today().strftime('%Y-%m-%d')), ('lot_id.fecha_caducidad_residuo', '!=', False)]"/>
                 <filter string="Próximos a Vencer"
                         name="proximos_vencer"
-                        domain="[('lot_id.caducidad_estado', '=', 'warning')]"/>
+                        domain="[('lot_id.fecha_caducidad_residuo', '&gt;=', context_today().strftime('%Y-%m-%d')), ('lot_id.fecha_caducidad_residuo', '&lt;=', (context_today() + datetime.timedelta(days=30)).strftime('%Y-%m-%d'))]"/>
                 <separator/>
-                <filter string="Plan de Manejo"
-                        name="group_plan_manejo"
-                        context="{'group_by': 'plan_manejo'}"/>
-                <filter string="No. Manifiesto"
-                        name="group_manifiesto"
-                        context="{'group_by': 'numero_manifiesto'}"/>
-                <filter string="Generador"
-                        name="group_generador"
-                        context="{'group_by': 'generador_nombre'}"/>
-                <filter string="Transportista"
-                        name="group_transportista"
-                        context="{'group_by': 'transportista_nombre'}"/>
+                <filter string="Por Lote/Manifiesto"
+                        name="group_lot"
+                        context="{'group_by': 'lot_id'}"/>
+                <filter string="Por Producto"
+                        name="group_product"
+                        context="{'group_by': 'product_id'}"/>
+                <filter string="Por Fecha"
+                        name="group_date"
+                        context="{'group_by': 'date:month'}"/>
+                <filter string="Por Ubicación Destino"
+                        name="group_dest"
+                        context="{'group_by': 'location_dest_id'}"/>
             </xpath>
         </field>
     </record>
