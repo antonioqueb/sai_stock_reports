@@ -30,65 +30,51 @@ import logging
 _logger = logging.getLogger(__name__)
 
 
-def _get_manifiesto_and_residuo(env, lot):
+def _get_manifiesto_and_residuo(env, lot, manifiesto_override=None):
     """
-    Dado un stock.lot, devuelve (manifiesto, residuo_line) buscando:
-    1. Por lot_id directo en manifiesto.ambiental.residuo
-    2. Por nombre del lote == numero_manifiesto (fallback)
-    Retorna (None, None) si no encuentra nada.
+    Resuelve (manifiesto, residuo_line) para un lot.
+
+    Si se pasa `manifiesto_override` (por ejemplo el manifiesto de salida
+    asociado a un picking de egreso), ese manifiesto tiene prioridad y
+    el residuo_line se busca DENTRO de ese manifiesto.
+
+    Si no hay override, se busca por lot_id en cualquier residuo, con
+    fallback por nombre de lote == numero_manifiesto (compatibilidad con
+    la lógica anterior de entrada).
     """
-    if not lot:
+    if not lot and not manifiesto_override:
         return None, None
 
-    residuo_line = env['manifiesto.ambiental.residuo'].search(
-        [('lot_id', '=', lot.id)], limit=1
-    )
+    # Prioridad 1: override explícito (típicamente manifiesto de salida)
+    if manifiesto_override:
+        residuo_line = None
+        if lot:
+            residuo_line = env['manifiesto.ambiental.residuo'].search([
+                ('manifiesto_id', '=', manifiesto_override.id),
+                ('lot_id', '=', lot.id),
+            ], limit=1)
+        return manifiesto_override, residuo_line
+
+    # Prioridad 2: buscar por lot_id (manifiesto de entrada típicamente)
+    # Preferimos manifiestos de entrada cuando hay ambigüedad.
+    residuo_line = env['manifiesto.ambiental.residuo'].search([
+        ('lot_id', '=', lot.id),
+        ('manifiesto_id.tipo_manifiesto', '=', 'entrada'),
+        ('manifiesto_id.is_current_version', '=', True),
+    ], limit=1, order='id desc')
+    if not residuo_line:
+        residuo_line = env['manifiesto.ambiental.residuo'].search(
+            [('lot_id', '=', lot.id)], limit=1, order='id desc'
+        )
     if residuo_line and residuo_line.manifiesto_id:
         return residuo_line.manifiesto_id, residuo_line
 
+    # Prioridad 3: fallback por nombre del lote
     manifiesto = env['manifiesto.ambiental'].search([
         ('numero_manifiesto', '=', lot.name),
         ('is_current_version', '=', True),
     ], limit=1)
     return (manifiesto, None) if manifiesto else (None, None)
-
-
-# ---------------------------------------------------------------------------
-# Campos comunes que se repiten en quant y move.line
-# ---------------------------------------------------------------------------
-_MANIFIESTO_FIELDS = [
-    # (field_name, field_type, string, extra_kwargs)
-    # --- Del manifiesto ---
-    ('folio',                       'Integer', 'Folio',                        {}),
-    ('numero_manifiesto',           'Char',    'No. Manifiesto',               {}),
-    ('fecha_manifiesto',            'Date',    'Fecha',                        {}),
-    ('generador_nombre',            'Char',    'Generador',                    {}),
-    ('numero_registro_ambiental',   'Char',    'Núm. Reg. Ambiental',          {}),
-    ('nombre_operador',             'Char',    'Nombre del Operador',          {}),
-    ('camion',                      'Char',    'Camión',                       {}),
-    ('camion_contenedor_placa',     'Char',    'Camión-Contenedor-Placa',      {}),
-    ('transportista_nombre',        'Char',    'Transportista',                {}),
-    ('autorizacion_transportista',  'Char',    'Autorización Transportista',   {}),
-    # --- Del residuo (línea del manifiesto) ---
-    ('nombre_residuo',              'Char',    'Residuos Peligrosos',          {}),
-    ('cantidad_contenedores',       'Integer', 'Cant. Contenedores',           {}),
-    ('tipo_contenedor',             'Char',    'Tipo Contenedor',              {}),
-    ('capacidad_contenedor',        'Char',    'Capacidad Contenedor',         {}),
-    ('clasificaciones_cretib',      'Char',    'CRETIB',                       {}),
-    ('clasificacion_c',             'Boolean', 'C',                            {}),
-    ('clasificacion_r',             'Boolean', 'R',                            {}),
-    ('clasificacion_e',             'Boolean', 'E',                            {}),
-    ('clasificacion_t',             'Boolean', 'T',                            {}),
-    ('clasificacion_i',             'Boolean', 'I',                            {}),
-    ('clasificacion_b',             'Boolean', 'B',                            {}),
-    # --- Del lote ---
-    ('plan_manejo',                 'Char',    'Plan de Manejo',               {}),
-    ('tipo_manejo_id_rel',          'Many2one','Tipo de Manejo',               {'comodel': 'residuo.tipo.manejo'}),
-    ('fecha_recepcion_residuo',     'Date',    'Fecha Recepción',              {}),
-    ('fecha_caducidad_residuo',     'Date',    'Fecha Caducidad',              {}),
-    ('dias_restantes_caducidad',    'Integer', 'Días Restantes',               {}),
-    ('caducidad_estado',            'Selection','Estado Caducidad',            {}),
-]
 
 
 def _falsy_values():
@@ -126,9 +112,6 @@ def _falsy_values():
 def _fill_from_manifiesto_and_lot(record, manifiesto, residuo_line, lot):
     """
     Escribe en record todos los campos computados.
-    - manifiesto: manifiesto.ambiental o None
-    - residuo_line: manifiesto.ambiental.residuo o None
-    - lot: stock.lot o None
     """
     vals = _falsy_values()
 
@@ -147,21 +130,14 @@ def _fill_from_manifiesto_and_lot(record, manifiesto, residuo_line, lot):
     if residuo_line:
         vals['nombre_residuo'] = residuo_line.nombre_residuo or False
 
-        # Tipo de contenedor: packaging_id tiene prioridad sobre envase_tipo
         if residuo_line.packaging_id:
             vals['tipo_contenedor'] = residuo_line.packaging_id.name
         elif residuo_line.envase_tipo:
             tipo_sel = dict(residuo_line._fields['envase_tipo'].selection)
             vals['tipo_contenedor'] = tipo_sel.get(residuo_line.envase_tipo, residuo_line.envase_tipo)
         vals['capacidad_contenedor'] = residuo_line.envase_capacidad or False
+        vals['cantidad_contenedores'] = residuo_line.envase_cantidad or 0
 
-        # cantidad de contenedores no está en residuo_line como tal,
-        # pero la cantidad en kg es residuo_line.cantidad
-        # El "CANTIDAD TOTAL DEL RESIDUO" del CSV es # de contenedores (ej: 21 totes)
-        # No tenemos ese campo, usamos la cantidad en kg como referencia
-        vals['cantidad_contenedores'] = 0  # no hay campo directo de # contenedores en el modelo
-
-        # CRETIB desde el residuo de manifiesto
         vals['clasificaciones_cretib'] = residuo_line.clasificaciones_display or False
         vals['clasificacion_c'] = residuo_line.clasificacion_corrosivo
         vals['clasificacion_r'] = residuo_line.clasificacion_reactivo
@@ -171,7 +147,6 @@ def _fill_from_manifiesto_and_lot(record, manifiesto, residuo_line, lot):
         vals['clasificacion_b'] = residuo_line.clasificacion_biologico
 
     if lot:
-        # CRETIB desde el lote (si no vino del residuo_line)
         if not residuo_line:
             vals['clasificaciones_cretib'] = lot.clasificaciones_display or False
             vals['clasificacion_c'] = lot.clasificacion_corrosivo
@@ -198,7 +173,6 @@ def _fill_from_manifiesto_and_lot(record, manifiesto, residuo_line, lot):
 class StockQuantResiduo(models.Model):
     _inherit = 'stock.quant'
 
-    # --- Manifiesto ---
     folio = fields.Integer(string='Folio', compute='_compute_sai_fields', store=False)
     numero_manifiesto = fields.Char(string='No. Manifiesto', compute='_compute_sai_fields', store=False)
     fecha_manifiesto = fields.Date(string='Fecha', compute='_compute_sai_fields', store=False)
@@ -210,7 +184,6 @@ class StockQuantResiduo(models.Model):
     transportista_nombre = fields.Char(string='Transportista', compute='_compute_sai_fields', store=False)
     autorizacion_transportista = fields.Char(string='Autorización Transportista', compute='_compute_sai_fields', store=False)
 
-    # --- Residuo ---
     nombre_residuo = fields.Char(string='Residuos Peligrosos', compute='_compute_sai_fields', store=False)
     cantidad_contenedores = fields.Integer(string='Cant. Contenedores', compute='_compute_sai_fields', store=False)
     tipo_contenedor = fields.Char(string='Tipo Contenedor', compute='_compute_sai_fields', store=False)
@@ -223,7 +196,6 @@ class StockQuantResiduo(models.Model):
     clasificacion_i = fields.Boolean(string='I', compute='_compute_sai_fields', store=False)
     clasificacion_b = fields.Boolean(string='B', compute='_compute_sai_fields', store=False)
 
-    # --- Lote / Plan de Manejo ---
     plan_manejo = fields.Char(string='Plan de Manejo', compute='_compute_sai_fields', store=False)
     tipo_manejo_id_rel = fields.Many2one(
         'residuo.tipo.manejo', string='Tipo de Manejo',
@@ -250,7 +222,6 @@ class StockQuantResiduo(models.Model):
 class StockMoveLineResiduo(models.Model):
     _inherit = 'stock.move.line'
 
-    # --- Manifiesto ---
     folio = fields.Integer(string='Folio', compute='_compute_sai_fields', store=False)
     numero_manifiesto = fields.Char(string='No. Manifiesto', compute='_compute_sai_fields', store=False)
     fecha_manifiesto = fields.Date(string='Fecha', compute='_compute_sai_fields', store=False)
@@ -262,7 +233,6 @@ class StockMoveLineResiduo(models.Model):
     transportista_nombre = fields.Char(string='Transportista', compute='_compute_sai_fields', store=False)
     autorizacion_transportista = fields.Char(string='Autorización Transportista', compute='_compute_sai_fields', store=False)
 
-    # --- Residuo ---
     nombre_residuo = fields.Char(string='Residuos Peligrosos', compute='_compute_sai_fields', store=False)
     cantidad_contenedores = fields.Integer(string='Cant. Contenedores', compute='_compute_sai_fields', store=False)
     tipo_contenedor = fields.Char(string='Tipo Contenedor', compute='_compute_sai_fields', store=False)
@@ -275,7 +245,6 @@ class StockMoveLineResiduo(models.Model):
     clasificacion_i = fields.Boolean(string='I', compute='_compute_sai_fields', store=False)
     clasificacion_b = fields.Boolean(string='B', compute='_compute_sai_fields', store=False)
 
-    # --- Lote / Plan de Manejo ---
     plan_manejo = fields.Char(string='Plan de Manejo', compute='_compute_sai_fields', store=False)
     tipo_manejo_id_rel = fields.Many2one(
         'residuo.tipo.manejo', string='Tipo de Manejo',
@@ -289,8 +258,17 @@ class StockMoveLineResiduo(models.Model):
         string='Estado Caducidad', compute='_compute_sai_fields', store=False
     )
 
-    @api.depends('lot_id')
+    @api.depends('lot_id', 'picking_id')
     def _compute_sai_fields(self):
         for line in self:
-            manifiesto, residuo_line = _get_manifiesto_and_residuo(self.env, line.lot_id)
+            # Si el movimiento viene de una salida de acopio, el manifiesto
+            # de salida tiene prioridad (lo inyecta salida_acopio_manifiesto
+            # via el campo related 'manifiesto_salida_override_id').
+            manifiesto_override = None
+            if 'manifiesto_salida_override_id' in line._fields:
+                manifiesto_override = line.manifiesto_salida_override_id or None
+
+            manifiesto, residuo_line = _get_manifiesto_and_residuo(
+                self.env, line.lot_id, manifiesto_override=manifiesto_override
+            )
             _fill_from_manifiesto_and_lot(line, manifiesto, residuo_line, line.lot_id)
