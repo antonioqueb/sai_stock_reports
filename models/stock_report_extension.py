@@ -3,27 +3,41 @@
 Extensión de stock.quant y stock.move.line para exponer todos los campos
 del registro de manifiestos de residuos peligrosos SAI.
 
-Puente crítico para ENTRADAS con múltiples residuos:
-    stock.move.line.product_id (consumible)
-        ↔ residuo.recepcion.linea.product_id (mismo consumible)
-        ↔ residuo.recepcion.linea.descripcion_origen
-        ↔ manifiesto.ambiental.residuo.nombre_residuo
-
-Sin este puente, los reportes no encuentran el residuo correcto porque
-el product_id del manifiesto (servicio de service.order) difiere del
-product_id del picking (consumible físico).
+Cadena de matching residuo → reporte (en orden de fiabilidad):
+  0. Vínculo directo residuo.recepcion.linea.residuo_manifiesto_id
+  1. descripcion_origen de la línea de recepción == nombre_residuo
+  2. lot_id idéntico
+  3. product_id del lote == product_id del residuo
+  4. Nombre limpio (sin [CODE]) del producto == nombre_residuo limpio
+  5. descripcion_origen limpia == nombre_residuo limpio
+  6. Manifiesto con un solo residuo → esa única línea
 """
-from odoo import models, fields, api
+import re
 import logging
+from odoo import models, fields, api
 
 _logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Helpers de navegación
+# Normalización de nombres
+# ---------------------------------------------------------------------------
+_CODE_PREFIX_RE = re.compile(r'^\s*\[[^\]]+\]\s*')
+
+
+def _clean_name(name):
+    """Quita prefijos [CODE] y normaliza para comparación exacta."""
+    if not name:
+        return ''
+    cleaned = _CODE_PREFIX_RE.sub('', name)
+    cleaned = re.sub(r'\s+', ' ', cleaned).strip().upper()
+    return cleaned
+
+
+# ---------------------------------------------------------------------------
+# Navegación picking → recepción → manifiesto
 # ---------------------------------------------------------------------------
 def _get_recepcion_from_picking(picking):
-    """picking.origin → residuo.recepcion"""
     if not picking or not picking.origin:
         return None
     Rec = picking.env['residuo.recepcion']
@@ -31,7 +45,6 @@ def _get_recepcion_from_picking(picking):
 
 
 def _get_recepcion_manifiesto(picking):
-    """picking → residuo.recepcion → manifiesto_id (para entradas)"""
     recepcion = _get_recepcion_from_picking(picking)
     if not recepcion or 'manifiesto_id' not in recepcion._fields:
         return None
@@ -39,10 +52,7 @@ def _get_recepcion_manifiesto(picking):
 
 
 def _get_recepcion_linea_for_move(move_line):
-    """
-    Línea de residuo.recepcion que corresponde a un stock.move.line.
-    Match por product_id (consumible) y, si es posible, por lote.
-    """
+    """Encuentra la línea de recepción que corresponde a un stock.move.line."""
     if not move_line or not move_line.product_id:
         return None
     recepcion = _get_recepcion_from_picking(move_line.picking_id)
@@ -51,22 +61,34 @@ def _get_recepcion_linea_for_move(move_line):
 
     product_id = move_line.product_id.id
 
-    # Preferir: mismo producto + mismo lote
+    # Preferir mismo producto + mismo lote
     if move_line.lot_id:
         lot_name = move_line.lot_id.name
         match = recepcion.linea_ids.filtered(
-            lambda l: l.product_id.id == product_id and (l.lote_asignado or '') == (lot_name or '')
+            lambda l: l.product_id.id == product_id
+            and (l.lote_asignado or '') == (lot_name or '')
         )
         if match:
             return match[0]
 
     # Fallback: sólo producto
     match = recepcion.linea_ids.filtered(lambda l: l.product_id.id == product_id)
-    return match[0] if match else None
+    if match:
+        return match[0]
+
+    # Último recurso: mismo lote
+    if move_line.lot_id:
+        lot_name = move_line.lot_id.name
+        match = recepcion.linea_ids.filtered(
+            lambda l: (l.lote_asignado or '') == (lot_name or '')
+        )
+        if match:
+            return match[0]
+
+    return None
 
 
 def _get_salida_manifiesto(picking):
-    """picking.salida_acopio_id → manifiesto_salida_id (para salidas)"""
     if not picking or 'salida_acopio_id' not in picking._fields:
         return None
     salida = picking.salida_acopio_id
@@ -76,23 +98,22 @@ def _get_salida_manifiesto(picking):
 
 
 # ---------------------------------------------------------------------------
-# Matching de residuo_line dentro del manifiesto
+# Match residuo_line dentro del manifiesto
 # ---------------------------------------------------------------------------
-def _find_residuo_line_in_manifiesto(env, manifiesto, lot, recepcion_linea=None):
-    """
-    Estrategia con fallbacks en orden de fiabilidad:
-      1. descripcion_origen de la recepción ↔ nombre_residuo (EL PUENTE CORRECTO).
-      2. lot_id directo (funciona solo si product_id del manifiesto = del picking).
-      3. product_id del lote.
-      4. Única línea en el manifiesto.
-      5. ilike por nombre del producto del lote.
-    """
+def _find_residuo_line_in_manifiesto(env, manifiesto, lot, recepcion_linea=None,
+                                     move_line=None):
     if not manifiesto:
         return None
 
     Residuo = env['manifiesto.ambiental.residuo']
 
-    # 1. Puente por descripcion_origen
+    # 0. Vínculo explícito (nuevo campo)
+    if recepcion_linea and 'residuo_manifiesto_id' in recepcion_linea._fields:
+        rm = recepcion_linea.residuo_manifiesto_id
+        if rm and rm.manifiesto_id.id == manifiesto.id:
+            return rm
+
+    # 1. descripcion_origen == nombre_residuo (match exacto)
     if recepcion_linea and recepcion_linea.descripcion_origen:
         desc = recepcion_linea.descripcion_origen.strip()
         rl = Residuo.search([
@@ -101,15 +122,8 @@ def _find_residuo_line_in_manifiesto(env, manifiesto, lot, recepcion_linea=None)
         ], limit=1)
         if rl:
             return rl
-        # Tolerante a diferencias mínimas (espacios, mayúsculas)
-        rl = Residuo.search([
-            ('manifiesto_id', '=', manifiesto.id),
-            ('nombre_residuo', 'ilike', desc),
-        ], limit=1)
-        if rl:
-            return rl
 
-    # 2. lot_id directo
+    # 2. lot_id idéntico
     if lot:
         rl = Residuo.search([
             ('manifiesto_id', '=', manifiesto.id),
@@ -118,7 +132,7 @@ def _find_residuo_line_in_manifiesto(env, manifiesto, lot, recepcion_linea=None)
         if rl:
             return rl
 
-    # 3. product_id del lote
+    # 3. product_id del lote == product_id del residuo
     if lot and lot.product_id:
         rl = Residuo.search([
             ('manifiesto_id', '=', manifiesto.id),
@@ -127,33 +141,51 @@ def _find_residuo_line_in_manifiesto(env, manifiesto, lot, recepcion_linea=None)
         if rl:
             return rl
 
-    # 4. Única línea
+    # También probar con el product_id del move_line (por si el lote está limpio)
+    if move_line and move_line.product_id:
+        rl = Residuo.search([
+            ('manifiesto_id', '=', manifiesto.id),
+            ('product_id', '=', move_line.product_id.id),
+        ], limit=1)
+        if rl:
+            return rl
+
+    # 4. Nombre limpio del producto == nombre_residuo limpio
+    candidate_product_name = ''
+    if lot and lot.product_id:
+        candidate_product_name = lot.product_id.name
+    elif move_line and move_line.product_id:
+        candidate_product_name = move_line.product_id.name
+
+    clean_product = _clean_name(candidate_product_name)
+    if clean_product:
+        for residuo in manifiesto.residuo_ids:
+            if _clean_name(residuo.nombre_residuo) == clean_product:
+                return residuo
+
+    # 5. descripcion_origen limpia == nombre_residuo limpio
+    if recepcion_linea and recepcion_linea.descripcion_origen:
+        clean_desc = _clean_name(recepcion_linea.descripcion_origen)
+        if clean_desc:
+            for residuo in manifiesto.residuo_ids:
+                if _clean_name(residuo.nombre_residuo) == clean_desc:
+                    return residuo
+
+    # 6. Única línea
     if len(manifiesto.residuo_ids) == 1:
         return manifiesto.residuo_ids[0]
-
-    # 5. Por nombre del producto del lote
-    if lot and lot.product_id:
-        name = (lot.product_id.name or '').strip()
-        if name:
-            rl = Residuo.search([
-                ('manifiesto_id', '=', manifiesto.id),
-                ('nombre_residuo', 'ilike', name),
-            ], limit=1)
-            if rl:
-                return rl
 
     return None
 
 
-def _get_manifiesto_and_residuo(env, lot, move_line=None, manifiesto_override=None,
-                                recepcion_linea=None):
-    """Resuelve (manifiesto, residuo_line) con toda la cascada de fallbacks."""
+def _get_manifiesto_and_residuo(env, lot, move_line=None,
+                                manifiesto_override=None, recepcion_linea=None):
     if move_line and recepcion_linea is None:
         recepcion_linea = _get_recepcion_linea_for_move(move_line)
 
     if manifiesto_override:
         return manifiesto_override, _find_residuo_line_in_manifiesto(
-            env, manifiesto_override, lot, recepcion_linea
+            env, manifiesto_override, lot, recepcion_linea, move_line
         )
 
     if not lot:
@@ -187,14 +219,14 @@ def _get_manifiesto_and_residuo(env, lot, move_line=None, manifiesto_override=No
 
     if manifiesto:
         return manifiesto, _find_residuo_line_in_manifiesto(
-            env, manifiesto, lot, recepcion_linea
+            env, manifiesto, lot, recepcion_linea, move_line
         )
 
     return None, None
 
 
 # ---------------------------------------------------------------------------
-# Llenado de campos con cascada de fuentes
+# Llenado de campos
 # ---------------------------------------------------------------------------
 def _falsy_values():
     return {
@@ -217,10 +249,8 @@ def _falsy_values():
 
 def _fill_from_sources(record, manifiesto, residuo_line, lot,
                        recepcion=None, recepcion_linea=None):
-    """Llena el record priorizando: manifiesto/residuo_line > recepcion_linea > lot."""
     vals = _falsy_values()
 
-    # --- Manifiesto (cabecera) ---
     if manifiesto:
         vals['folio'] = manifiesto.sequence_number or 0
         vals['numero_manifiesto'] = manifiesto.numero_manifiesto or False
@@ -233,7 +263,6 @@ def _fill_from_sources(record, manifiesto, residuo_line, lot,
         vals['transportista_nombre'] = manifiesto.transportista_nombre or False
         vals['autorizacion_transportista'] = manifiesto.numero_autorizacion_semarnat or False
 
-    # --- Residuo del manifiesto (fuente primaria de datos del residuo) ---
     if residuo_line:
         vals['nombre_residuo'] = residuo_line.nombre_residuo or False
         if residuo_line.packaging_id:
@@ -253,7 +282,7 @@ def _fill_from_sources(record, manifiesto, residuo_line, lot,
         vals['clasificacion_i'] = residuo_line.clasificacion_inflamable
         vals['clasificacion_b'] = residuo_line.clasificacion_biologico
 
-    # --- Fallback de descripción y CRETIB desde recepcion_linea ---
+    # Fallback desde recepcion_linea
     if recepcion_linea:
         if not vals['nombre_residuo'] and recepcion_linea.descripcion_origen:
             vals['nombre_residuo'] = recepcion_linea.descripcion_origen
@@ -269,7 +298,7 @@ def _fill_from_sources(record, manifiesto, residuo_line, lot,
             vals['tipo_manejo_id_rel'] = recepcion_linea.tipo_manejo_id.id
             vals['plan_manejo'] = recepcion_linea.tipo_manejo_id.name
 
-    # --- Lote (caducidad, tipo_manejo si la línea no lo tenía) ---
+    # Lote (caducidad + backup de tipo_manejo y CRETIB)
     if lot:
         if not vals['clasificaciones_cretib']:
             vals['clasificaciones_cretib'] = lot.clasificaciones_display or False
@@ -289,7 +318,6 @@ def _fill_from_sources(record, manifiesto, residuo_line, lot,
         vals['dias_restantes_caducidad'] = lot.dias_restantes_caducidad or 0
         vals['caducidad_estado'] = lot.caducidad_estado or False
 
-    # --- Último fallback: fecha de recepción desde el registro de recepcion ---
     if recepcion and not vals['fecha_recepcion_residuo']:
         if recepcion.fecha_recepcion:
             vals['fecha_recepcion_residuo'] = recepcion.fecha_recepcion
@@ -299,7 +327,7 @@ def _fill_from_sources(record, manifiesto, residuo_line, lot,
 
 
 # ---------------------------------------------------------------------------
-# stock.quant — Reporte de Ubicaciones
+# stock.quant
 # ---------------------------------------------------------------------------
 class StockQuantResiduo(models.Model):
     _inherit = 'stock.quant'
@@ -348,7 +376,7 @@ class StockQuantResiduo(models.Model):
 
 
 # ---------------------------------------------------------------------------
-# stock.move.line — Historial de Movimientos
+# stock.move.line
 # ---------------------------------------------------------------------------
 class StockMoveLineResiduo(models.Model):
     _inherit = 'stock.move.line'
@@ -392,9 +420,7 @@ class StockMoveLineResiduo(models.Model):
     @api.depends('lot_id', 'picking_id', 'product_id')
     def _compute_sai_fields(self):
         for line in self:
-            # 1) salida
             manifiesto_override = _get_salida_manifiesto(line.picking_id)
-            # 2) entrada via residuo.recepcion
             if not manifiesto_override:
                 manifiesto_override = _get_recepcion_manifiesto(line.picking_id)
 
