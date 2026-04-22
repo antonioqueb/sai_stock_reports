@@ -4,10 +4,15 @@ Extensión de stock.quant y stock.move.line para exponer todos los campos
 del registro de manifiestos de residuos peligrosos SAI.
 
 Soporte para:
-- Manifiestos de ENTRADA (recepción): resuelve por lot_id y por nombre.
-- Manifiestos de SALIDA (salida de acopio): el picking lleva la referencia
-  a salida.acopio, que a su vez apunta al manifiesto de salida. Soft check
-  — si salida_acopio_manifiesto no está instalado, se usa lógica default.
+- Manifiestos de ENTRADA (recepción): el picking es creado por residuo.recepcion
+  cuyo `name` se guarda en `picking.origin`. Desde ahí se llega al manifiesto.
+- Manifiestos de SALIDA: el picking lleva salida_acopio_id → manifiesto_salida_id.
+
+Nota crítica: en ENTRADA el lot_id del stock.move.line NO suele coincidir con
+el lot_id de manifiesto.ambiental.residuo porque el producto del manifiesto
+difiere del producto consumible elegido en la recepción. Ambos lotes tienen
+el mismo `name` (número de manifiesto) pero son registros distintos. Por eso
+el matching del residuo_line se hace con fallbacks robustos.
 """
 from odoo import models, fields, api
 import logging
@@ -15,53 +20,107 @@ import logging
 _logger = logging.getLogger(__name__)
 
 
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+def _find_residuo_line_in_manifiesto(env, manifiesto, lot):
+    """
+    Dado un manifiesto y un lote, encuentra la línea de residuo más probable.
+
+    Estrategia (en orden):
+      1. Match directo por lot_id.
+      2. Si el manifiesto tiene una sola línea, usarla.
+      3. Match por product_id del lote.
+      4. Match por nombre del producto del lote (ilike) sobre nombre_residuo.
+    """
+    if not manifiesto:
+        return None
+
+    Residuo = env['manifiesto.ambiental.residuo']
+
+    if lot:
+        rl = Residuo.search([
+            ('manifiesto_id', '=', manifiesto.id),
+            ('lot_id', '=', lot.id),
+        ], limit=1)
+        if rl:
+            return rl
+
+    if len(manifiesto.residuo_ids) == 1:
+        return manifiesto.residuo_ids[0]
+
+    if lot and lot.product_id:
+        rl = Residuo.search([
+            ('manifiesto_id', '=', manifiesto.id),
+            ('product_id', '=', lot.product_id.id),
+        ], limit=1)
+        if rl:
+            return rl
+
+        product_name = (lot.product_id.name or '').strip()
+        if product_name:
+            rl = Residuo.search([
+                ('manifiesto_id', '=', manifiesto.id),
+                ('nombre_residuo', 'ilike', product_name),
+            ], limit=1)
+            if rl:
+                return rl
+
+    return None
+
+
 def _get_manifiesto_and_residuo(env, lot, manifiesto_override=None):
     """
     Resuelve (manifiesto, residuo_line) para un lot.
 
-    - Si se pasa manifiesto_override (ej. manifiesto de salida de acopio),
-      ese manifiesto tiene prioridad y el residuo_line se busca DENTRO de él.
-    - Si no, se prefieren manifiestos de ENTRADA (recepción) por lot_id.
-    - Fallback: manifiesto por nombre = lot.name.
+    - Si manifiesto_override se provee (salida via salida_acopio_id, o entrada
+      via residuo.recepcion desde picking.origin), ese manifiesto tiene
+      prioridad y el residuo_line se busca dentro de él con matching robusto.
+    - Si no, se busca por lot_id directo, preferiendo entrada vigente, y
+      finalmente fallback por numero_manifiesto = lot.name.
     """
     if not lot and not manifiesto_override:
         return None, None
 
     if manifiesto_override:
-        residuo_line = None
-        if lot:
-            residuo_line = env['manifiesto.ambiental.residuo'].search([
-                ('manifiesto_id', '=', manifiesto_override.id),
-                ('lot_id', '=', lot.id),
-            ], limit=1)
-        return manifiesto_override, residuo_line
+        return manifiesto_override, _find_residuo_line_in_manifiesto(env, manifiesto_override, lot)
 
-    # Preferir manifiestos de entrada sobre los de salida cuando ambos
-    # apuntan al mismo lot_id.
-    residuo_line = env['manifiesto.ambiental.residuo'].search([
+    Residuo = env['manifiesto.ambiental.residuo']
+    Manifiesto = env['manifiesto.ambiental']
+
+    # Match directo por lot_id (prefiriendo entradas vigentes)
+    residuo_line = Residuo.search([
         ('lot_id', '=', lot.id),
         ('manifiesto_id.tipo_manifiesto', '=', 'entrada'),
         ('manifiesto_id.is_current_version', '=', True),
     ], limit=1, order='id desc')
     if not residuo_line:
-        residuo_line = env['manifiesto.ambiental.residuo'].search(
+        residuo_line = Residuo.search(
             [('lot_id', '=', lot.id)], limit=1, order='id desc'
         )
     if residuo_line and residuo_line.manifiesto_id:
         return residuo_line.manifiesto_id, residuo_line
 
-    manifiesto = env['manifiesto.ambiental'].search([
+    # Fallback: buscar manifiesto por numero_manifiesto == lot.name
+    manifiesto = Manifiesto.search([
         ('numero_manifiesto', '=', lot.name),
         ('is_current_version', '=', True),
+        ('tipo_manifiesto', '=', 'entrada'),
     ], limit=1)
-    return (manifiesto, None) if manifiesto else (None, None)
+    if not manifiesto:
+        manifiesto = Manifiesto.search([
+            ('numero_manifiesto', '=', lot.name),
+            ('is_current_version', '=', True),
+        ], limit=1)
+
+    if manifiesto:
+        return manifiesto, _find_residuo_line_in_manifiesto(env, manifiesto, lot)
+
+    return None, None
 
 
 def _get_salida_manifiesto(picking):
-    """
-    Soft check: si el picking tiene salida_acopio_id (módulo
-    salida_acopio_manifiesto instalado), retorna el manifiesto de salida.
-    """
+    """Soft check: picking.salida_acopio_id → manifiesto_salida_id."""
     if not picking:
         return None
     if 'salida_acopio_id' not in picking._fields:
@@ -69,8 +128,23 @@ def _get_salida_manifiesto(picking):
     salida = picking.salida_acopio_id
     if not salida:
         return None
-    manifiesto = salida.manifiesto_salida_id
-    return manifiesto or None
+    return salida.manifiesto_salida_id or None
+
+
+def _get_recepcion_manifiesto(picking):
+    """
+    Para manifiestos de ENTRADA: residuo.recepcion crea el picking y escribe
+    su `name` en `picking.origin`. Desde la recepción llegamos al manifiesto.
+    """
+    if not picking or not picking.origin:
+        return None
+    Rec = picking.env['residuo.recepcion']
+    if 'manifiesto_id' not in Rec._fields:
+        return None
+    recepcion = Rec.search([('name', '=', picking.origin)], limit=1)
+    if not recepcion:
+        return None
+    return recepcion.manifiesto_id or None
 
 
 def _falsy_values():
@@ -255,10 +329,11 @@ class StockMoveLineResiduo(models.Model):
     @api.depends('lot_id', 'picking_id')
     def _compute_sai_fields(self):
         for line in self:
-            # Soft check del picking: si viene de una salida de acopio,
-            # ese manifiesto tiene prioridad. Navegación dinámica,
-            # no un campo related stored (evita problemas en upgrade).
+            # Prioridad 1: salida (picking.salida_acopio_id)
             manifiesto_override = _get_salida_manifiesto(line.picking_id)
+            # Prioridad 2: entrada via recepción (picking.origin → residuo.recepcion)
+            if not manifiesto_override:
+                manifiesto_override = _get_recepcion_manifiesto(line.picking_id)
 
             manifiesto, residuo_line = _get_manifiesto_and_residuo(
                 self.env, line.lot_id, manifiesto_override=manifiesto_override
