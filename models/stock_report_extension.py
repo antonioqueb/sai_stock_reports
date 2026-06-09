@@ -343,41 +343,41 @@ def _fill_from_sources(record, manifiesto, residuo_line, lot,
 class StockQuantResiduo(models.Model):
     _inherit = 'stock.quant'
 
-    folio = fields.Integer(string='Folio', compute='_compute_sai_fields', store=False)
-    numero_manifiesto = fields.Char(string='No. Manifiesto', compute='_compute_sai_fields', store=False)
-    fecha_manifiesto = fields.Date(string='Fecha', compute='_compute_sai_fields', store=False)
-    generador_nombre = fields.Char(string='Generador', compute='_compute_sai_fields', store=False)
-    generador_origen = fields.Char(string='Generador de Origen', compute='_compute_sai_fields', store=False)
-    numero_registro_ambiental = fields.Char(string='Núm. Reg. Ambiental', compute='_compute_sai_fields', store=False)
-    nombre_operador = fields.Char(string='Nombre del Operador', compute='_compute_sai_fields', store=False)
-    camion = fields.Char(string='Camión', compute='_compute_sai_fields', store=False)
-    camion_contenedor_placa = fields.Char(string='Camión-Contenedor-Placa', compute='_compute_sai_fields', store=False)
-    transportista_nombre = fields.Char(string='Transportista', compute='_compute_sai_fields', store=False)
-    autorizacion_transportista = fields.Char(string='Autorización Transportista', compute='_compute_sai_fields', store=False)
+    folio = fields.Integer(string='Folio', compute='_compute_sai_fields', store=True)
+    numero_manifiesto = fields.Char(string='No. Manifiesto', compute='_compute_sai_fields', store=True)
+    fecha_manifiesto = fields.Date(string='Fecha', compute='_compute_sai_fields', store=True)
+    generador_nombre = fields.Char(string='Generador', compute='_compute_sai_fields', store=True)
+    generador_origen = fields.Char(string='Generador de Origen', compute='_compute_sai_fields', store=True)
+    numero_registro_ambiental = fields.Char(string='Núm. Reg. Ambiental', compute='_compute_sai_fields', store=True)
+    nombre_operador = fields.Char(string='Nombre del Operador', compute='_compute_sai_fields', store=True)
+    camion = fields.Char(string='Camión', compute='_compute_sai_fields', store=True)
+    camion_contenedor_placa = fields.Char(string='Camión-Contenedor-Placa', compute='_compute_sai_fields', store=True)
+    transportista_nombre = fields.Char(string='Transportista', compute='_compute_sai_fields', store=True)
+    autorizacion_transportista = fields.Char(string='Autorización Transportista', compute='_compute_sai_fields', store=True)
 
-    nombre_residuo = fields.Char(string='Residuos Peligrosos', compute='_compute_sai_fields', store=False)
-    cantidad_contenedores = fields.Integer(string='Cant. Contenedores', compute='_compute_sai_fields', store=False)
-    tipo_contenedor = fields.Char(string='Tipo Contenedor', compute='_compute_sai_fields', store=False)
-    capacidad_contenedor = fields.Char(string='Capacidad Contenedor', compute='_compute_sai_fields', store=False)
-    clasificaciones_cretib = fields.Char(string='CRETIB', compute='_compute_sai_fields', store=False)
-    clasificacion_c = fields.Boolean(string='C', compute='_compute_sai_fields', store=False)
-    clasificacion_r = fields.Boolean(string='R', compute='_compute_sai_fields', store=False)
-    clasificacion_e = fields.Boolean(string='E', compute='_compute_sai_fields', store=False)
-    clasificacion_t = fields.Boolean(string='T', compute='_compute_sai_fields', store=False)
-    clasificacion_i = fields.Boolean(string='I', compute='_compute_sai_fields', store=False)
-    clasificacion_b = fields.Boolean(string='B', compute='_compute_sai_fields', store=False)
+    nombre_residuo = fields.Char(string='Residuos Peligrosos', compute='_compute_sai_fields', store=True)
+    cantidad_contenedores = fields.Integer(string='Cant. Contenedores', compute='_compute_sai_fields', store=True)
+    tipo_contenedor = fields.Char(string='Tipo Contenedor', compute='_compute_sai_fields', store=True)
+    capacidad_contenedor = fields.Char(string='Capacidad Contenedor', compute='_compute_sai_fields', store=True)
+    clasificaciones_cretib = fields.Char(string='CRETIB', compute='_compute_sai_fields', store=True)
+    clasificacion_c = fields.Boolean(string='C', compute='_compute_sai_fields', store=True)
+    clasificacion_r = fields.Boolean(string='R', compute='_compute_sai_fields', store=True)
+    clasificacion_e = fields.Boolean(string='E', compute='_compute_sai_fields', store=True)
+    clasificacion_t = fields.Boolean(string='T', compute='_compute_sai_fields', store=True)
+    clasificacion_i = fields.Boolean(string='I', compute='_compute_sai_fields', store=True)
+    clasificacion_b = fields.Boolean(string='B', compute='_compute_sai_fields', store=True)
 
-    plan_manejo = fields.Char(string='Plan de Manejo', compute='_compute_sai_fields', store=False)
+    plan_manejo = fields.Char(string='Plan de Manejo', compute='_compute_sai_fields', store=True)
     tipo_manejo_id_rel = fields.Many2one(
         'residuo.tipo.manejo', string='Tipo de Manejo',
-        compute='_compute_sai_fields', store=False,
+        compute='_compute_sai_fields', store=True,
     )
-    fecha_recepcion_residuo = fields.Date(string='Fecha Recepción', compute='_compute_sai_fields', store=False)
-    fecha_caducidad_residuo = fields.Date(string='Fecha Caducidad', compute='_compute_sai_fields', store=False)
-    dias_restantes_caducidad = fields.Integer(string='Días Restantes', compute='_compute_sai_fields', store=False)
+    fecha_recepcion_residuo = fields.Date(string='Fecha Recepción', compute='_compute_sai_fields', store=True)
+    fecha_caducidad_residuo = fields.Date(string='Fecha Caducidad', compute='_compute_sai_fields', store=True)
+    dias_restantes_caducidad = fields.Integer(string='Días Restantes', compute='_compute_sai_fields', store=True)
     caducidad_estado = fields.Selection(
         [('ok', 'Vigente'), ('warning', 'Próximo a vencer'), ('expired', 'Vencido')],
-        string='Estado Caducidad', compute='_compute_sai_fields', store=False,
+        string='Estado Caducidad', compute='_compute_sai_fields', store=True,
     )
 
     @api.depends('lot_id')
@@ -394,41 +394,41 @@ class StockQuantResiduo(models.Model):
 class StockMoveLineResiduo(models.Model):
     _inherit = 'stock.move.line'
 
-    folio = fields.Integer(string='Folio', compute='_compute_sai_fields', store=False)
-    numero_manifiesto = fields.Char(string='No. Manifiesto', compute='_compute_sai_fields', store=False)
-    fecha_manifiesto = fields.Date(string='Fecha', compute='_compute_sai_fields', store=False)
-    generador_nombre = fields.Char(string='Generador', compute='_compute_sai_fields', store=False)
-    generador_origen = fields.Char(string='Generador de Origen', compute='_compute_sai_fields', store=False)
-    numero_registro_ambiental = fields.Char(string='Núm. Reg. Ambiental', compute='_compute_sai_fields', store=False)
-    nombre_operador = fields.Char(string='Nombre del Operador', compute='_compute_sai_fields', store=False)
-    camion = fields.Char(string='Camión', compute='_compute_sai_fields', store=False)
-    camion_contenedor_placa = fields.Char(string='Camión-Contenedor-Placa', compute='_compute_sai_fields', store=False)
-    transportista_nombre = fields.Char(string='Transportista', compute='_compute_sai_fields', store=False)
-    autorizacion_transportista = fields.Char(string='Autorización Transportista', compute='_compute_sai_fields', store=False)
+    folio = fields.Integer(string='Folio', compute='_compute_sai_fields', store=True)
+    numero_manifiesto = fields.Char(string='No. Manifiesto', compute='_compute_sai_fields', store=True)
+    fecha_manifiesto = fields.Date(string='Fecha', compute='_compute_sai_fields', store=True)
+    generador_nombre = fields.Char(string='Generador', compute='_compute_sai_fields', store=True)
+    generador_origen = fields.Char(string='Generador de Origen', compute='_compute_sai_fields', store=True)
+    numero_registro_ambiental = fields.Char(string='Núm. Reg. Ambiental', compute='_compute_sai_fields', store=True)
+    nombre_operador = fields.Char(string='Nombre del Operador', compute='_compute_sai_fields', store=True)
+    camion = fields.Char(string='Camión', compute='_compute_sai_fields', store=True)
+    camion_contenedor_placa = fields.Char(string='Camión-Contenedor-Placa', compute='_compute_sai_fields', store=True)
+    transportista_nombre = fields.Char(string='Transportista', compute='_compute_sai_fields', store=True)
+    autorizacion_transportista = fields.Char(string='Autorización Transportista', compute='_compute_sai_fields', store=True)
 
-    nombre_residuo = fields.Char(string='Residuos Peligrosos', compute='_compute_sai_fields', store=False)
-    cantidad_contenedores = fields.Integer(string='Cant. Contenedores', compute='_compute_sai_fields', store=False)
-    tipo_contenedor = fields.Char(string='Tipo Contenedor', compute='_compute_sai_fields', store=False)
-    capacidad_contenedor = fields.Char(string='Capacidad Contenedor', compute='_compute_sai_fields', store=False)
-    clasificaciones_cretib = fields.Char(string='CRETIB', compute='_compute_sai_fields', store=False)
-    clasificacion_c = fields.Boolean(string='C', compute='_compute_sai_fields', store=False)
-    clasificacion_r = fields.Boolean(string='R', compute='_compute_sai_fields', store=False)
-    clasificacion_e = fields.Boolean(string='E', compute='_compute_sai_fields', store=False)
-    clasificacion_t = fields.Boolean(string='T', compute='_compute_sai_fields', store=False)
-    clasificacion_i = fields.Boolean(string='I', compute='_compute_sai_fields', store=False)
-    clasificacion_b = fields.Boolean(string='B', compute='_compute_sai_fields', store=False)
+    nombre_residuo = fields.Char(string='Residuos Peligrosos', compute='_compute_sai_fields', store=True)
+    cantidad_contenedores = fields.Integer(string='Cant. Contenedores', compute='_compute_sai_fields', store=True)
+    tipo_contenedor = fields.Char(string='Tipo Contenedor', compute='_compute_sai_fields', store=True)
+    capacidad_contenedor = fields.Char(string='Capacidad Contenedor', compute='_compute_sai_fields', store=True)
+    clasificaciones_cretib = fields.Char(string='CRETIB', compute='_compute_sai_fields', store=True)
+    clasificacion_c = fields.Boolean(string='C', compute='_compute_sai_fields', store=True)
+    clasificacion_r = fields.Boolean(string='R', compute='_compute_sai_fields', store=True)
+    clasificacion_e = fields.Boolean(string='E', compute='_compute_sai_fields', store=True)
+    clasificacion_t = fields.Boolean(string='T', compute='_compute_sai_fields', store=True)
+    clasificacion_i = fields.Boolean(string='I', compute='_compute_sai_fields', store=True)
+    clasificacion_b = fields.Boolean(string='B', compute='_compute_sai_fields', store=True)
 
-    plan_manejo = fields.Char(string='Plan de Manejo', compute='_compute_sai_fields', store=False)
+    plan_manejo = fields.Char(string='Plan de Manejo', compute='_compute_sai_fields', store=True)
     tipo_manejo_id_rel = fields.Many2one(
         'residuo.tipo.manejo', string='Tipo de Manejo',
-        compute='_compute_sai_fields', store=False,
+        compute='_compute_sai_fields', store=True,
     )
-    fecha_recepcion_residuo = fields.Date(string='Fecha Recepción', compute='_compute_sai_fields', store=False)
-    fecha_caducidad_residuo = fields.Date(string='Fecha Caducidad', compute='_compute_sai_fields', store=False)
-    dias_restantes_caducidad = fields.Integer(string='Días Restantes', compute='_compute_sai_fields', store=False)
+    fecha_recepcion_residuo = fields.Date(string='Fecha Recepción', compute='_compute_sai_fields', store=True)
+    fecha_caducidad_residuo = fields.Date(string='Fecha Caducidad', compute='_compute_sai_fields', store=True)
+    dias_restantes_caducidad = fields.Integer(string='Días Restantes', compute='_compute_sai_fields', store=True)
     caducidad_estado = fields.Selection(
         [('ok', 'Vigente'), ('warning', 'Próximo a vencer'), ('expired', 'Vencido')],
-        string='Estado Caducidad', compute='_compute_sai_fields', store=False,
+        string='Estado Caducidad', compute='_compute_sai_fields', store=True,
     )
 
     @api.depends('lot_id', 'picking_id', 'product_id')

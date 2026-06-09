@@ -140,20 +140,55 @@
             <xpath expr="//search" position="inside">
                 <separator/>
                 <field name="lot_id" string="Lote / Manifiesto"/>
+                <!-- Campos personalizados para teclear/filtrar -->
+                <field name="numero_manifiesto" string="No. Manifiesto"/>
+                <field name="generador_nombre" string="Generador"/>
+                <field name="generador_origen" string="Generador de Origen"/>
+                <field name="nombre_residuo" string="Residuos Peligrosos"/>
+                <field name="plan_manejo" string="Plan de Manejo"/>
+                <field name="transportista_nombre" string="Transportista"/>
                 <separator/>
                 <filter string="Vencidos"
                         name="caducados"
-                        domain="[('lot_id.fecha_caducidad_residuo', '&lt;', context_today().strftime('%Y-%m-%d')), ('lot_id.fecha_caducidad_residuo', '!=', False)]"/>
-                <filter string="Próximos a vencer (30 días)"
+                        domain="[('caducidad_estado', '=', 'expired')]"/>
+                <filter string="Próximos a vencer"
                         name="proximos_vencer"
-                        domain="[('lot_id.fecha_caducidad_residuo', '&gt;=', context_today().strftime('%Y-%m-%d')), ('lot_id.fecha_caducidad_residuo', '&lt;=', (context_today() + datetime.timedelta(days=30)).strftime('%Y-%m-%d'))]"/>
+                        domain="[('caducidad_estado', '=', 'warning')]"/>
+                <filter string="Vigentes"
+                        name="vigentes"
+                        domain="[('caducidad_estado', '=', 'ok')]"/>
                 <filter string="Con Manifiesto"
                         name="con_manifiesto"
                         domain="[('lot_id', '!=', False)]"/>
                 <separator/>
+                <filter string="Corrosivo (C)" name="cretib_c" domain="[('clasificacion_c', '=', True)]"/>
+                <filter string="Reactivo (R)" name="cretib_r" domain="[('clasificacion_r', '=', True)]"/>
+                <filter string="Explosivo (E)" name="cretib_e" domain="[('clasificacion_e', '=', True)]"/>
+                <filter string="Tóxico (T)" name="cretib_t" domain="[('clasificacion_t', '=', True)]"/>
+                <filter string="Inflamable (I)" name="cretib_i" domain="[('clasificacion_i', '=', True)]"/>
+                <filter string="Biológico (B)" name="cretib_b" domain="[('clasificacion_b', '=', True)]"/>
+                <separator/>
                 <filter string="Por Lote/Manifiesto"
                         name="group_lot"
                         context="{'group_by': 'lot_id'}"/>
+                <filter string="Por No. Manifiesto"
+                        name="group_manifiesto"
+                        context="{'group_by': 'numero_manifiesto'}"/>
+                <filter string="Por Generador"
+                        name="group_generador"
+                        context="{'group_by': 'generador_nombre'}"/>
+                <filter string="Por Generador de Origen"
+                        name="group_generador_origen"
+                        context="{'group_by': 'generador_origen'}"/>
+                <filter string="Por Residuo"
+                        name="group_residuo"
+                        context="{'group_by': 'nombre_residuo'}"/>
+                <filter string="Por Plan de Manejo"
+                        name="group_plan_manejo"
+                        context="{'group_by': 'plan_manejo'}"/>
+                <filter string="Por Estado Caducidad"
+                        name="group_caducidad"
+                        context="{'group_by': 'caducidad_estado'}"/>
                 <filter string="Por Producto"
                         name="group_product"
                         context="{'group_by': 'product_id'}"/>
@@ -269,7 +304,7 @@
     </record>
 
     <!-- Búsqueda extendida para stock.move.line -->
-    <!-- <record id="view_move_line_search_sai" model="ir.ui.view">
+    <record id="view_move_line_search_sai" model="ir.ui.view">
         <field name="name">stock.move.line.search.sai.residuos</field>
         <field name="model">stock.move.line</field>
         <field name="inherit_id" ref="stock.view_move_line_filter"/>
@@ -277,21 +312,51 @@
             <xpath expr="//search" position="inside">
                 <separator/>
                 <field name="lot_id" string="Lote / Manifiesto"/>
-                <field name="picking_id" string="Referencia"/>
+                <field name="numero_manifiesto" string="No. Manifiesto"/>
+                <field name="generador_nombre" string="Generador"/>
+                <field name="generador_origen" string="Generador de Origen"/>
+                <field name="nombre_residuo" string="Residuos Peligrosos"/>
+                <field name="plan_manejo" string="Plan de Manejo"/>
+                <field name="transportista_nombre" string="Transportista"/>
                 <separator/>
                 <filter string="Con Manifiesto"
                         name="con_manifiesto"
                         domain="[('lot_id', '!=', False)]"/>
                 <filter string="Residuos Vencidos"
                         name="caducados"
-                        domain="[('lot_id.fecha_caducidad_residuo', '&lt;', context_today().strftime('%Y-%m-%d')), ('lot_id.fecha_caducidad_residuo', '!=', False)]"/>
+                        domain="[('caducidad_estado', '=', 'expired')]"/>
                 <filter string="Próximos a Vencer"
                         name="proximos_vencer"
-                        domain="[('lot_id.fecha_caducidad_residuo', '&gt;=', context_today().strftime('%Y-%m-%d')), ('lot_id.fecha_caducidad_residuo', '&lt;=', (context_today() + datetime.timedelta(days=30)).strftime('%Y-%m-%d'))]"/>
+                        domain="[('caducidad_estado', '=', 'warning')]"/>
+                <separator/>
+                <filter string="Corrosivo (C)" name="cretib_c" domain="[('clasificacion_c', '=', True)]"/>
+                <filter string="Reactivo (R)" name="cretib_r" domain="[('clasificacion_r', '=', True)]"/>
+                <filter string="Explosivo (E)" name="cretib_e" domain="[('clasificacion_e', '=', True)]"/>
+                <filter string="Tóxico (T)" name="cretib_t" domain="[('clasificacion_t', '=', True)]"/>
+                <filter string="Inflamable (I)" name="cretib_i" domain="[('clasificacion_i', '=', True)]"/>
+                <filter string="Biológico (B)" name="cretib_b" domain="[('clasificacion_b', '=', True)]"/>
                 <separator/>
                 <filter string="Por Lote/Manifiesto"
                         name="group_lot"
                         context="{'group_by': 'lot_id'}"/>
+                <filter string="Por No. Manifiesto"
+                        name="group_manifiesto"
+                        context="{'group_by': 'numero_manifiesto'}"/>
+                <filter string="Por Generador"
+                        name="group_generador"
+                        context="{'group_by': 'generador_nombre'}"/>
+                <filter string="Por Generador de Origen"
+                        name="group_generador_origen"
+                        context="{'group_by': 'generador_origen'}"/>
+                <filter string="Por Residuo"
+                        name="group_residuo"
+                        context="{'group_by': 'nombre_residuo'}"/>
+                <filter string="Por Plan de Manejo"
+                        name="group_plan_manejo"
+                        context="{'group_by': 'plan_manejo'}"/>
+                <filter string="Por Estado Caducidad"
+                        name="group_caducidad"
+                        context="{'group_by': 'caducidad_estado'}"/>
                 <filter string="Por Producto"
                         name="group_product"
                         context="{'group_by': 'product_id'}"/>
@@ -303,6 +368,6 @@
                         context="{'group_by': 'location_dest_id'}"/>
             </xpath>
         </field>
-    </record> -->
+    </record>
 
 </odoo>
