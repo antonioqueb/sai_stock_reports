@@ -231,7 +231,8 @@ def _get_manifiesto_and_residuo(env, lot, move_line=None,
 def _falsy_values():
     return {
         'folio': 0, 'numero_manifiesto': False, 'fecha_manifiesto': False,
-        'generador_nombre': False, 'numero_registro_ambiental': False,
+        'generador_nombre': False, 'generador_origen': False,
+        'numero_registro_ambiental': False,
         'nombre_operador': False, 'camion': False,
         'camion_contenedor_placa': False, 'transportista_nombre': False,
         'autorizacion_transportista': False,
@@ -248,7 +249,8 @@ def _falsy_values():
 
 
 def _fill_from_sources(record, manifiesto, residuo_line, lot,
-                       recepcion=None, recepcion_linea=None):
+                       recepcion=None, recepcion_linea=None,
+                       entrada_manifiesto=None):
     vals = _falsy_values()
 
     if manifiesto:
@@ -256,6 +258,15 @@ def _fill_from_sources(record, manifiesto, residuo_line, lot,
         vals['numero_manifiesto'] = manifiesto.numero_manifiesto or False
         vals['fecha_manifiesto'] = manifiesto.generador_fecha or False
         vals['generador_nombre'] = manifiesto.generador_nombre or False
+
+    # Generador de origen: siempre del manifiesto de ENTRADA del lote, para poder
+    # trazar las salidas por el cliente generador original (el manifiesto de salida
+    # trae como generador al acopio, no al cliente).
+    if entrada_manifiesto:
+        vals['generador_origen'] = entrada_manifiesto.generador_nombre or False
+    elif manifiesto and manifiesto.tipo_manifiesto == 'entrada':
+        vals['generador_origen'] = manifiesto.generador_nombre or False
+    if manifiesto:
         vals['numero_registro_ambiental'] = manifiesto.numero_registro_ambiental or False
         vals['nombre_operador'] = manifiesto.transportista_responsable_nombre or False
         vals['camion'] = manifiesto.tipo_vehiculo or False
@@ -336,6 +347,7 @@ class StockQuantResiduo(models.Model):
     numero_manifiesto = fields.Char(string='No. Manifiesto', compute='_compute_sai_fields', store=False)
     fecha_manifiesto = fields.Date(string='Fecha', compute='_compute_sai_fields', store=False)
     generador_nombre = fields.Char(string='Generador', compute='_compute_sai_fields', store=False)
+    generador_origen = fields.Char(string='Generador de Origen', compute='_compute_sai_fields', store=False)
     numero_registro_ambiental = fields.Char(string='Núm. Reg. Ambiental', compute='_compute_sai_fields', store=False)
     nombre_operador = fields.Char(string='Nombre del Operador', compute='_compute_sai_fields', store=False)
     camion = fields.Char(string='Camión', compute='_compute_sai_fields', store=False)
@@ -372,7 +384,8 @@ class StockQuantResiduo(models.Model):
     def _compute_sai_fields(self):
         for quant in self:
             manifiesto, residuo_line = _get_manifiesto_and_residuo(self.env, quant.lot_id)
-            _fill_from_sources(quant, manifiesto, residuo_line, quant.lot_id)
+            _fill_from_sources(quant, manifiesto, residuo_line, quant.lot_id,
+                               entrada_manifiesto=manifiesto)
 
 
 # ---------------------------------------------------------------------------
@@ -385,6 +398,7 @@ class StockMoveLineResiduo(models.Model):
     numero_manifiesto = fields.Char(string='No. Manifiesto', compute='_compute_sai_fields', store=False)
     fecha_manifiesto = fields.Date(string='Fecha', compute='_compute_sai_fields', store=False)
     generador_nombre = fields.Char(string='Generador', compute='_compute_sai_fields', store=False)
+    generador_origen = fields.Char(string='Generador de Origen', compute='_compute_sai_fields', store=False)
     numero_registro_ambiental = fields.Char(string='Núm. Reg. Ambiental', compute='_compute_sai_fields', store=False)
     nombre_operador = fields.Char(string='Nombre del Operador', compute='_compute_sai_fields', store=False)
     camion = fields.Char(string='Camión', compute='_compute_sai_fields', store=False)
@@ -433,7 +447,20 @@ class StockMoveLineResiduo(models.Model):
                 manifiesto_override=manifiesto_override,
                 recepcion_linea=recepcion_linea,
             )
+
+            # Manifiesto de ENTRADA del lote (sin override de salida), para trazar
+            # el generador de origen aunque este movimiento sea una salida. Si el
+            # manifiesto resuelto ya es de entrada, _fill_from_sources lo deduce solo.
+            entrada_manifiesto = None
+            if manifiesto and manifiesto.tipo_manifiesto != 'entrada':
+                entrada_manifiesto, _ = _get_manifiesto_and_residuo(
+                    self.env, line.lot_id,
+                    move_line=line,
+                    recepcion_linea=recepcion_linea,
+                )
+
             _fill_from_sources(
                 line, manifiesto, residuo_line, line.lot_id,
                 recepcion=recepcion, recepcion_linea=recepcion_linea,
+                entrada_manifiesto=entrada_manifiesto,
             )

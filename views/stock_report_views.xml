@@ -184,12 +184,14 @@
                        optional="show"
                        decoration-bf="numero_manifiesto != False"/>
 
-                <field name="fecha_manifiesto"
-                       string="Fecha Manifiesto"
-                       optional="hide"/>
-
                 <field name="generador_nombre"
                        string="Generador"
+                       optional="show"/>
+
+                <!-- Generador de origen: cliente generador original del manifiesto
+                     de entrada; permite filtrar y trazar las salidas por cliente -->
+                <field name="generador_origen"
+                       string="Generador de Origen"
                        optional="show"/>
 
                 <field name="numero_registro_ambiental"
@@ -241,14 +243,6 @@
 
                 <field name="plan_manejo"
                        string="Plan de Manejo"
-                       optional="show"/>
-
-                <field name="tipo_manejo_id_rel"
-                       string="Tipo de Manejo"
-                       optional="hide"/>
-
-                <field name="fecha_recepcion_residuo"
-                       string="Fecha Recepción RP"
                        optional="show"/>
 
                 <field name="fecha_caducidad_residuo"
