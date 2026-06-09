@@ -1,6 +1,6 @@
 {
     'name': 'SAI - Reportes de Stock con Datos Ambientales',
-    'version': '19.0.1.1.0',
+    'version': '19.0.1.2.0',
     'category': 'Inventory',
     'summary': 'Extiende reportes de Ubicaciones e Historial de Movimientos con todos los campos del registro de manifiestos de residuos peligrosos',
     'author': 'Alphaqueb Consulting',
